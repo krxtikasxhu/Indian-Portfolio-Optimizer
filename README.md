@@ -144,7 +144,7 @@ The correlation matrix helps users explore diversification relationships between
 
 ---
 
-## 📈 Markowitz Portfolio Optimization
+##  Markowitz Portfolio Optimization
 
 The dashboard uses Modern Portfolio Theory to construct optimized portfolios.
 
@@ -482,7 +482,7 @@ This project provided practical experience in:
 
 ---
 
-## 👨‍💻 Author
+##  Author
 
 **Krutika Sahu**
 
