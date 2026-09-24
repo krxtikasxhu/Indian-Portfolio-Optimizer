@@ -7,7 +7,6 @@ import yfinance as yf
 
 st.set_page_config(
     page_title="Indian Portfolio Analytics",
-    page_icon="📊",
     layout="wide"
 )
 
@@ -400,7 +399,7 @@ def calculate_efficient_frontier(
 # DASHBOARD
 # ============================================================
 
-st.title("📊 Indian Stock Portfolio Analytics")
+st.title("Indian Stock Portfolio Analytics")
 
 st.caption(
     "Phase 1: Real market data loading, cleaning, "
@@ -597,7 +596,7 @@ try:
         use_container_width=True
     )
     
-    st.subheader("📈 Markowitz Portfolio Optimization")
+    st.subheader("Markowitz Portfolio Optimization")
     
     risk_free_rate = st.slider(
         "Risk-free rate (%)",
@@ -681,7 +680,7 @@ try:
     # INVESTMENT CALCULATOR
     # ============================================================
 
-    st.subheader("💰 Investment Calculator")
+    st.subheader("Investment Calculator")
 
     investment_amount = st.number_input(
         "Enter investment amount (₹)",
@@ -750,7 +749,7 @@ try:
     # PORTFOLIO ALLOCATION VISUALIZATION
     # ============================================================
 
-    st.subheader("📊 Portfolio Allocation Visualization")
+    st.subheader("Portfolio Allocation Visualization")
 
     col1, col2 = st.columns(2)
 
@@ -810,7 +809,7 @@ try:
     # PORTFOLIO PERFORMANCE COMPARISON
     # ============================================================
 
-    st.subheader("📈 Portfolio Performance Comparison")
+    st.subheader("Portfolio Performance Comparison")
 
     # Calculate metrics for Minimum Variance Portfolio
     min_return, min_volatility = portfolio_metrics(
@@ -885,7 +884,7 @@ try:
     # HISTORICAL PORTFOLIO BACKTESTING
     # ============================================================
 
-    st.subheader("📊 Historical Portfolio Backtesting")
+    st.subheader("Historical Portfolio Backtesting")
 
     st.write(
         "This chart shows how ₹1,00,000 would have grown "
@@ -992,7 +991,7 @@ try:
     # RISK ANALYSIS
     # ============================================================
 
-    st.subheader("⚠️ Portfolio Risk Analysis")
+    st.subheader("Portfolio Risk Analysis")
 
     # ------------------------------------------------------------
     # 1. VALUE AT RISK (VaR)
@@ -1100,7 +1099,7 @@ try:
     # AUTOMATED PORTFOLIO INSIGHTS
     # ============================================================
 
-    st.subheader("🧠 Portfolio Insights")
+    st.subheader("Portfolio Insights")
 
     st.write("### Statistical Interpretation")
 
@@ -1184,7 +1183,7 @@ try:
     # PORTFOLIO VALIDATION
     # ============================================================
 
-    st.subheader("✅ Portfolio Validation")
+    st.subheader("Portfolio Validation")
 
     # Check whether weights sum to 1
     min_weight_sum = min_variance_weights.sum()
@@ -1239,7 +1238,7 @@ try:
             "Review the optimization results."
         )
 
-    st.subheader("📊 Efficient Frontier")
+    st.subheader("Efficient Frontier")
 
     frontier_data = calculate_efficient_frontier(
         expected_returns,
@@ -1307,6 +1306,258 @@ try:
     st.success(
         "Phase 1 completed successfully."
     )
+
+
+    # ============================================================
+    # NIFTY INDEX ANALYSIS
+    # ============================================================
+
+    st.subheader("NIFTY Index Analysis")
+    st.write(
+        "Analyze uploaded NIFTY Midcap and Smallcap index datasets "
+        "separately from the individual-stock portfolio optimizer."
+    )
+
+    INDEX_FILES = {
+        "NIFTY MIDCAP 50": "midcap 50.csv",
+        "NIFTY MIDCAP 100": "midcap100.csv",
+        "NIFTY MIDCAP 150": "midcap150.csv",
+        "NIFTY SMALLCAP 50": "small 50.csv",
+        "NIFTY SMALLCAP 100": "small100.csv",
+        "NIFTY SMALLCAP 250": "small150.csv"
+    }
+
+    @st.cache_data
+    def load_index_data(file_name):
+        import os
+
+        file_path = os.path.join(
+            os.path.dirname(__file__),
+            file_name
+        )
+
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(
+                f"Could not find {file_name}. "
+                "Make sure the CSV file is in the same folder as app.py."
+            )
+
+        df = pd.read_csv(file_path)
+
+        required_columns = [
+            "Date", "Open", "High", "Low", "Close"
+        ]
+
+        missing = [
+            col for col in required_columns
+            if col not in df.columns
+        ]
+
+        if missing:
+            raise ValueError(
+                f"Missing columns in {file_name}: {missing}"
+            )
+
+        df["Date"] = pd.to_datetime(
+            df["Date"],
+            errors="coerce"
+        )
+
+        for col in ["Open", "High", "Low", "Close"]:
+            df[col] = pd.to_numeric(
+                df[col],
+                errors="coerce"
+            )
+
+        df = (
+            df.dropna(subset=["Date", "Close"])
+            .sort_values("Date")
+            .drop_duplicates(subset="Date")
+            .set_index("Date")
+        )
+
+        df["Daily Return"] = df["Close"].pct_change()
+
+        return df
+
+    selected_indices = st.multiselect(
+        "Select NIFTY indices",
+        list(INDEX_FILES.keys()),
+        default=[
+            "NIFTY MIDCAP 50",
+            "NIFTY MIDCAP 100",
+            "NIFTY MIDCAP 150",
+            "NIFTY SMALLCAP 50",
+            "NIFTY SMALLCAP 100",
+            "NIFTY SMALLCAP 250"
+        ]
+    )
+
+    if selected_indices:
+        index_data = {}
+        index_summary_rows = []
+
+        for index_name in selected_indices:
+            try:
+                df_index = load_index_data(
+                    INDEX_FILES[index_name]
+                )
+                index_data[index_name] = df_index
+
+                returns = df_index["Daily Return"].dropna()
+                annualized_return = returns.mean() * TRADING_DAYS
+                annualized_volatility = (
+                    returns.std() * np.sqrt(TRADING_DAYS)
+                )
+
+                running_max = df_index["Close"].cummax()
+                drawdown = (
+                    df_index["Close"] - running_max
+                ) / running_max
+
+                max_drawdown = drawdown.min()
+
+                var_95 = (
+                    returns.quantile(0.05)
+                )
+
+                index_summary_rows.append({
+                    "Index": index_name,
+                    "Observations": len(df_index),
+                    "Start Date": df_index.index.min().date(),
+                    "End Date": df_index.index.max().date(),
+                    "Annualized Return": annualized_return,
+                    "Annualized Volatility": annualized_volatility,
+                    "Maximum Drawdown": max_drawdown,
+                    "Daily VaR (95%)": var_95
+                })
+
+            except Exception as index_error:
+                st.warning(
+                    f"Could not load {index_name}: {index_error}"
+                )
+
+        if index_data:
+            index_summary = pd.DataFrame(index_summary_rows)
+
+            st.markdown("### Index Statistics")
+
+            display_index_summary = index_summary.copy()
+            display_index_summary["Annualized Return"] = (
+                display_index_summary["Annualized Return"] * 100
+            ).round(2).astype(str) + "%"
+            display_index_summary["Annualized Volatility"] = (
+                display_index_summary["Annualized Volatility"] * 100
+            ).round(2).astype(str) + "%"
+            display_index_summary["Maximum Drawdown"] = (
+                display_index_summary["Maximum Drawdown"] * 100
+            ).round(2).astype(str) + "%"
+            display_index_summary["Daily VaR (95%)"] = (
+                display_index_summary["Daily VaR (95%)"] * 100
+            ).round(2).astype(str) + "%"
+
+            st.dataframe(
+                display_index_summary,
+                use_container_width=True,
+                hide_index=True
+            )
+
+            # Normalized index performance
+            normalized_indices = pd.DataFrame()
+
+            for index_name, df_index in index_data.items():
+                normalized_indices[index_name] = (
+                    df_index["Close"] /
+                    df_index["Close"].iloc[0] * 100
+                )
+
+            normalized_long = (
+                normalized_indices
+                .reset_index()
+                .melt(
+                    id_vars="Date",
+                    var_name="Index",
+                    value_name="Indexed Value"
+                )
+            )
+
+            fig_index_performance = px.line(
+                normalized_long,
+                x="Date",
+                y="Indexed Value",
+                color="Index",
+                title="NIFTY Index Normalized Performance (Starting Value = 100)"
+            )
+
+            st.plotly_chart(
+                fig_index_performance,
+                use_container_width=True
+            )
+
+            # Closing price comparison
+            st.markdown("### Historical Closing Prices")
+
+            close_prices = pd.DataFrame({
+                index_name: df_index["Close"]
+                for index_name, df_index in index_data.items()
+            })
+
+            st.line_chart(close_prices)
+
+            # Index return correlation
+            st.markdown("### Index Return Correlation")
+
+            index_returns = pd.DataFrame({
+                index_name: df_index["Daily Return"]
+                for index_name, df_index in index_data.items()
+            }).dropna()
+
+            if index_returns.shape[1] >= 2:
+                index_correlation = index_returns.corr()
+
+                fig_index_corr = px.imshow(
+                    index_correlation,
+                    text_auto=".2f",
+                    aspect="auto",
+                    color_continuous_scale="RdBu_r",
+                    zmin=-1,
+                    zmax=1,
+                    title="NIFTY Index Daily Return Correlation"
+                )
+
+                st.plotly_chart(
+                    fig_index_corr,
+                    use_container_width=True
+                )
+
+            # Selected index details
+            detail_index = st.selectbox(
+                "View detailed data for an index",
+                list(index_data.keys())
+            )
+
+            detail_df = index_data[detail_index].copy()
+
+            st.markdown(
+                f"### {detail_index} — Historical Data"
+            )
+
+            st.dataframe(
+                detail_df.tail(20),
+                use_container_width=True
+            )
+
+            st.download_button(
+                "Download Selected Index Data",
+                detail_df.to_csv().encode("utf-8"),
+                f"{detail_index.lower().replace(' ', '_')}_data.csv",
+                "text/csv"
+            )
+
+    else:
+        st.info(
+            "Select at least one NIFTY index to display the analysis."
+        )
 
 except Exception as error:
 
